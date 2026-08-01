@@ -1,0 +1,17 @@
+production:
+  adapter: postgresql
+  database: redmine_ckeditor_production
+  host: 127.0.0.1
+  username: redmine_ckeditor
+  password: redmine_ckeditor
+  encoding: unicode
+  schema_dump: false
+
+test:
+  adapter: postgresql
+  database: redmine_ckeditor_test
+  host: 127.0.0.1
+  username: redmine_ckeditor
+  password: redmine_ckeditor
+  encoding: unicode
+  schema_dump: false

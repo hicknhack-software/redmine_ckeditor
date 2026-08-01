@@ -1,3 +1,3 @@
 RedmineApp::Application.routes.draw do
-  mount Rich::Engine => '/rich', :as => 'rich'
+  post 'redmine_ckeditor/uploads', to: 'redmine_ckeditor_uploads#create', as: :redmine_ckeditor_uploads
 end

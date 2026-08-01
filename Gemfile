@@ -1,10 +1,5 @@
 source 'https://rubygems.org'
 
-gem 'rich', git: 'https://github.com/a-ono/rich.git', tag: '1.5.2'
-gem 'kaminari'
-gem 'htmlentities'
-gem 'paperclip', '~> 6.1.0'
-gem 'pandoc-ruby'
-
-# It is needed for upgrading CKEditor
-#gem 'sprockets-rails', '< 3.0.0' 
+# CKEditor 5 uses Redmine's own Attachment model and has no extra Ruby runtime
+# dependencies. Front-end dependencies are pinned in package.json and the built
+# files are committed under assets/ for normal Redmine plugin deployment.

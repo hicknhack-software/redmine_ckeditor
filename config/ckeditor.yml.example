@@ -1,54 +1,49 @@
-# CKEditor configuration
+# CKEditor 5 configuration. Copy this file to REDMINE_ROOT/config/ckeditor.yml.
+# The plugin defaults to the GPL-compatible self-hosted license key. Replace it
+# with your commercial self-hosting key when applicable.
+licenseKey: GPL
 
-allowedContent: true
-bodyClass: "wiki"
-removePlugins: "div,flash,forms,iframe"
-forcePasteAsPlainText: false
+# Any CKEditor 5 configuration can be supplied here. Ruby-specific sanitizer
+# settings are kept separate below.
+mediaEmbed:
+  previewsInData: true
+htmlSupport:
+  allow:
+    - name: "$all"
+      attributes: true
+      classes: true
+      styles: true
 
-# HTML sanitizer configuration
+# CKEditor 5 replaces CKEditor 4's built-in Styles list with explicit style
+# definitions. Add `style` to the toolbar when definitions are configured.
+style:
+  definitions:
+    - name: Info paragraph
+      element: p
+      classes:
+        - info
+    - name: Inline marker
+      element: span
+      classes:
+        - marker
 
 allowedProtocols:
-  - afs
-  - aim
-  - callto
-  - ed2k
-  - feed
-  - ftp
-  - gopher
   - http
   - https
-  - irc
+  - ftp
   - mailto
-  - news
-  - nntp
-  - rsync
-  - rtsp
-  - sftp
   - ssh
-  - tag
-  - telnet
-  - urn
-  - webcal
-  - xmpp
+  - sftp
 
+# Extend these lists if custom CKEditor features emit additional HTML.
 allowedTags:
   - a
-  - abbr
-  - acronym
-  - address
-  - b
-  - big
   - blockquote
   - br
-  - caption
-  - cite
   - code
-  - dd
-  - del
-  - dfn
   - div
-  - dt
-  - em
+  - figcaption
+  - figure
   - h1
   - h2
   - h3
@@ -56,23 +51,14 @@ allowedTags:
   - h5
   - h6
   - hr
-  - i
   - iframe
   - img
-  - ins
-  - kbd
   - li
   - ol
   - p
   - pre
-  - s
-  - samp
-  - small
   - span
-  - strike
   - strong
-  - sub
-  - sup
   - table
   - tbody
   - td
@@ -80,33 +66,19 @@ allowedTags:
   - th
   - thead
   - tr
-  - tt
-  - u
   - ul
-  - var
-
 allowedAttributes:
-  - abbr
-  - align
   - alt
-  - border
-  - cellpadding
-  - cellspacing
-  - cite
   - class
   - colspan
-  - datetime
-  - dir
   - height
   - href
-  - name
-  - nowrap
-  - reversed
+  - id
+  - rel
   - rowspan
   - src
-  - start
+  - srcset
   - style
+  - target
   - title
-  - valign
   - width
-  - xml:lang

@@ -1,0 +1,17 @@
+production:
+  adapter: mysql2
+  database: redmine_ckeditor_production
+  host: 127.0.0.1
+  username: root
+  password: redmine_ckeditor
+  encoding: utf8mb4
+  schema_dump: false
+
+test:
+  adapter: mysql2
+  database: redmine_ckeditor_test
+  host: 127.0.0.1
+  username: root
+  password: redmine_ckeditor
+  encoding: utf8mb4
+  schema_dump: false

@@ -1,0 +1,115 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Redmine 7 / Ruby 4.0.6 / ${{ matrix.database }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [sqlite3, postgresql, mysql2]
+
+    services:
+      postgresql:
+        image: postgres:18
+        env:
+          POSTGRES_DB: redmine_ckeditor_test
+          POSTGRES_USER: redmine_ckeditor
+          POSTGRES_PASSWORD: redmine_ckeditor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: redmine_ckeditor_test
+          MYSQL_ROOT_PASSWORD: redmine_ckeditor
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -predmine_ckeditor"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out Redmine 7
+        uses: actions/checkout@v6
+        with:
+          repository: redmine/redmine
+          ref: 7.0-stable
+          path: redmine
+
+      - name: Install the plugin
+        uses: actions/checkout@v6
+        with:
+          path: redmine/plugins/redmine_ckeditor
+
+      # Redmine selects adapter gems from config/database.yml, so this file
+      # must be installed before Bundler evaluates Redmine's Gemfile.
+      - name: Configure ${{ matrix.database }}
+        working-directory: redmine
+        run: cp plugins/redmine_ckeditor/.github/ci/${{ matrix.database }}_database.yml config/database.yml
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0.6'
+          working-directory: redmine
+
+      - name: Install Ruby dependencies
+        working-directory: redmine
+        run: bundle install --jobs 3 --retry 3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: redmine/plugins/redmine_ckeditor/package-lock.json
+
+      - name: Build CKEditor assets
+        working-directory: redmine/plugins/redmine_ckeditor
+        run: |
+          npm ci
+          npm run build
+          git diff --exit-code -- assets/javascripts/ckeditor5.js assets/javascripts/ckeditor5.css
+
+      - name: Prepare the test database
+        working-directory: redmine
+        env:
+          RAILS_ENV: test
+        run: |
+          bin/rails db:create db:migrate
+          bin/rails redmine:plugins:migrate
+
+      - name: Run plugin tests
+        working-directory: redmine
+        env:
+          RAILS_ENV: test
+        run: bin/rails test plugins/redmine_ckeditor/test
+
+      - name: Verify production migration and asset precompilation
+        working-directory: redmine
+        env:
+          RAILS_ENV: production
+          SECRET_KEY_BASE_DUMMY: '1'
+        run: |
+          bin/rails db:create db:migrate
+          bin/rails redmine:plugins:migrate
+          bin/rails assets:precompile

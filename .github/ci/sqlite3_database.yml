@@ -1,0 +1,12 @@
+production:
+  adapter: sqlite3
+  database: db/ckeditor-ci-production.sqlite3
+  # Rails 8.1 initializes empty databases from db/schema.rb. Plugin tables are
+  # included in that dump, but Redmine's plugin migration versions are not.
+  # Never share such a partial plugin schema between CI environments.
+  schema_dump: false
+
+test:
+  adapter: sqlite3
+  database: db/ckeditor-ci-test.sqlite3
+  schema_dump: false

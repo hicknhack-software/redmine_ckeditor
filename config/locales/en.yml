@@ -1,16 +1,11 @@
 en:
-  ckeditor_skin: Skin
   ckeditor_ui_color: UI color
-  ckeditor_enter_mode: Enter mode
-  ckeditor_startup_show_blocks: Startup show blocks 
-  ckeditor_toolbar_can_collapse: Toolbar can collapse
-  ckeditor_toolbar_location: Toolbar location
-  ckeditor_toolbar_buttons: Toolbar buttons
   ckeditor_width: Width
+  ckeditor_toolbar_buttons: Toolbar buttons
   ckeditor_height: Height
-  add: Add
-  remove: Remove
-  separator: Separator
-  subgroup: Subgroup
-  line_break: Line break
-
+  ckeditor_startup_show_blocks: Show blocks on startup
+  ckeditor_group_toolbar_items: Group toolbar overflow
+  ckeditor_group_toolbar_items_help: "Uses CKEditor 5's 'show more' overflow menu. Clear it to wrap toolbar items onto additional lines."
+  ckeditor_toolbar_help: "Comma-separated CKEditor 5 toolbar item names. Existing CKEditor 4 names are converted automatically."
+  ckeditor_license_notice: "CKEditor 5 is self-hosted with the GPL key by default. Configure a commercial self-hosting key in config/ckeditor.yml when required."
+  ckeditor_image_only: "Only image uploads are accepted by the editor."
