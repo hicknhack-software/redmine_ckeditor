@@ -10,13 +10,20 @@ permissions:
 
 jobs:
   test:
-    name: Redmine 7 / Ruby 4.0.6 / ${{ matrix.database }}
+    name: Redmine ${{ matrix.redmine.label }} / Ruby ${{ matrix.redmine.ruby }} / ${{ matrix.database }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
+        redmine:
+          - label: '6.1'
+            ref: 6.1-stable
+            ruby: '3.2'
+          - label: '7.0'
+            ref: 7.0-stable
+            ruby: '4.0.6'
         database: [sqlite3, postgresql, mysql2]
 
     services:
@@ -48,11 +55,11 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Check out Redmine 7
+      - name: Check out Redmine ${{ matrix.redmine.label }}
         uses: actions/checkout@v6
         with:
           repository: redmine/redmine
-          ref: 7.0-stable
+          ref: ${{ matrix.redmine.ref }}
           path: redmine
 
       - name: Install the plugin
@@ -69,7 +76,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '4.0.6'
+          ruby-version: ${{ matrix.redmine.ruby }}
           working-directory: redmine
 
       - name: Install Ruby dependencies

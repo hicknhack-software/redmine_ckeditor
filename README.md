@@ -1,15 +1,15 @@
 # Redmine CKEditor
 
-CKEditor 5 integration for Redmine 7. It stores formatted text as HTML and uses
-Redmine's native attachment storage for pasted and uploaded images.
+CKEditor 5 integration for Redmine 6.1 and 7. It stores formatted text as HTML
+and uses Redmine's native attachment storage for pasted and uploaded images.
 
 ## Compatibility
 
-- Redmine 7.0 or newer
-- Rails 8.1 (as shipped by Redmine 7)
-- Ruby 4.0, including Ruby 4.0.6
+- Redmine 6.1 or newer
+- Rails 7.2 (Redmine 6.1) or Rails 8.1 (Redmine 7)
+- Ruby 3.2 through 3.4 for Redmine 6.1, or a Ruby version supported by Redmine 7
 - CKEditor 5.48.3.1
-- Redmine 7's Propshaft-based asset pipeline
+- Redmine's Propshaft-based asset pipeline
 
 The old runtime dependencies have been removed.
 
@@ -32,8 +32,9 @@ The old runtime dependencies have been removed.
 5. Restart Redmine and select **CKEditor** under Administration → Settings →
    General → Text formatting.
 
-Do not copy assets manually into `public/plugin_assets`. Redmine 7 discovers the
-plugin's `assets/` tree through Propshaft and fingerprints it during precompile.
+Do not copy assets manually into `public/plugin_assets`. Redmine 6.1 and 7
+discover the plugin's `assets/` tree through Propshaft and fingerprint it during
+precompile.
 
 ## Automatic Rich migration
 
@@ -98,10 +99,11 @@ updated `package-lock.json`, `assets/javascripts/ckeditor5.js`, and
 
 ## Tests
 
-The GitHub Actions workflow installs the plugin into a clean Redmine 7 checkout,
-rebuilds CKEditor, migrates SQLite databases, precompiles production assets, and
-runs the plugin test suite on Ruby 4.0.6. It runs for pushes and pull requests and
-can also be started manually from the Actions tab.
+The GitHub Actions workflow installs the plugin into clean Redmine 6.1 and 7
+checkouts, rebuilds CKEditor, migrates SQLite, PostgreSQL, and MySQL databases,
+precompiles production assets, and runs the plugin test suite on Ruby versions
+supported by each Redmine release. It runs for pushes and pull requests and can
+also be started manually from the Actions tab.
 
 When the plugin is installed in a local Redmine checkout, run the same test suite
 from the Redmine root with:

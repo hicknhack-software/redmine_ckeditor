@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class MigrateRichUploadsToAttachments < ActiveRecord::Migration[8.1]
+class MigrateRichUploadsToAttachments < ActiveRecord::Migration[7.2]
   def up
     create_table :redmine_ckeditor_file_migrations, if_not_exists: true do |t|
       t.bigint :rich_file_id, null: false

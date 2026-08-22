@@ -29,7 +29,8 @@ class RedmineCkeditorUploadsControllerTest < Redmine::ControllerTest
   end
 
   def test_rejects_svg_uploads
-    file = uploaded_test_file('testfile.svg', 'image/svg+xml')
+    path = File.expand_path('../fixtures/files/testfile.svg', __dir__)
+    file = uploaded_test_file(path, 'image/svg+xml')
 
     assert_no_difference 'Attachment.count' do
       post :create, params: {upload: file}
