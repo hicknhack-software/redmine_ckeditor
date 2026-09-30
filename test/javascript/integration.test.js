@@ -7,6 +7,15 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
   const textareas = new Map();
   const createdConfigs = [];
   const destroyedEditors = [];
+  const previews = [];
+  const classList = (...initial) => {
+    const classes = new Set(initial);
+    return {
+      add: value => classes.add(value),
+      contains: value => classes.has(value),
+      remove: value => classes.delete(value)
+    };
+  };
   const form = {
     addEventListener() {},
     append() {},
@@ -42,6 +51,20 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
       listeners.set(name, callback);
     },
     location: { origin: 'https://redmine.example' },
+    jsToolBar: class {
+      constructor(textarea) {
+        this.textarea = textarea;
+        this.editTab = { firstChild: { classList: classList('selected') } };
+        this.previewTab = { firstChild: { classList: classList() } };
+        this.preview = { classList: classList('hidden'), style: {} };
+        this.toolbar = { classList: classList() };
+        previews.push(this);
+      }
+
+      setPreviewUrl(url) {
+        this.previewUrl = url;
+      }
+    },
     RedmineCKEditor5: {
       plugins: [],
       RedmineUpload() {},
@@ -57,9 +80,11 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
             model: { document: { on() {} } },
             plugins: { get: () => ({}) },
             ui: {
+              getEditableElement: () => ({ clientHeight: 240 }),
               view: {
                 element: {
-                  classList: { add() {} },
+                  classList: classList(),
+                  hidden: false,
                   style: { setProperty() {} }
                 }
               }
@@ -97,6 +122,7 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
     addTextarea,
     createdConfigs,
     destroyedEditors,
+    previews,
     fire(name) {
       document.readyState = 'complete';
       return listeners.get(name)?.();
@@ -118,6 +144,29 @@ test('waits for the full issue form before checking upload support', async () =>
   await replacement;
 
   assert.deepEqual(environment.createdConfigs[0].toolbar.items, ['bold', 'uploadImage']);
+});
+
+test('uses Redmine server preview and keeps custom options away from CKEditor', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes');
+  textarea.dispatchEvent = () => {};
+  const editor = await environment.integration.replace('issue_notes', {
+    redminePreviewUrl: '/issues/1/preview'
+  });
+
+  const preview = environment.previews[0];
+  assert.equal(preview.previewUrl, '/issues/1/preview');
+  assert.equal(environment.createdConfigs[0].redminePreviewUrl, undefined);
+
+  editor._data = '<p>Preview me</p>';
+  preview.previewTab.onclick({ target: preview.previewTab.firstChild });
+  assert.equal(textarea.value, '<p>Preview me</p>');
+  assert.equal(editor.ui.view.element.hidden, true);
+  assert.equal(preview.preview.classList.contains('hidden'), false);
+
+  preview.editTab.onclick({ target: preview.editTab.firstChild });
+  assert.equal(editor.ui.view.element.hidden, false);
+  assert.equal(preview.preview.classList.contains('hidden'), true);
 });
 
 test('recreates an editor when Redmine replaces its form through AJAX', async () => {

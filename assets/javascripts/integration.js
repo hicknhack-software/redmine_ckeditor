@@ -13,6 +13,48 @@
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  function createPreview(textarea, previewUrl) {
+    if (!previewUrl || typeof window.jsToolBar !== 'function') return;
+
+    const toolbar = new window.jsToolBar(textarea);
+    toolbar.setPreviewUrl(previewUrl);
+    return toolbar;
+  }
+
+  function connectPreview(toolbar, editor, textarea) {
+    if (!toolbar) return;
+
+    const editorElement = editor.ui.view.element;
+    const editLink = toolbar.editTab.firstChild;
+    const previewLink = toolbar.previewTab.firstChild;
+
+    toolbar.previewTab.onclick = event => {
+      if (event.target.classList.contains('selected')) return false;
+
+      sync(editor, textarea);
+      const editable = editor.ui.getEditableElement?.();
+      if (editable?.clientHeight) toolbar.preview.style.minHeight = `${editable.clientHeight}px`;
+      toolbar.toolbar.classList.add('hidden');
+      editorElement.hidden = true;
+      toolbar.preview.classList.remove('hidden');
+      editLink.classList.remove('selected');
+      previewLink.classList.add('selected');
+      return false;
+    };
+
+    toolbar.editTab.onclick = event => {
+      if (event.target.classList.contains('selected')) return false;
+
+      toolbar.toolbar.classList.remove('hidden');
+      editorElement.hidden = false;
+      toolbar.preview.classList.add('hidden');
+      previewLink.classList.remove('selected');
+      editLink.classList.add('selected');
+      editor.editing.view.focus();
+      return false;
+    };
+  }
+
   function normalizeAttachmentImageUrls(html) {
     const content = document.createElement('template');
     content.innerHTML = html || '';
@@ -84,6 +126,8 @@
         rule.name === '$all' ? Object.assign({}, rule, { name: /.*/ }) : rule
       );
     }
+    const preview = createPreview(textarea, config.redminePreviewUrl);
+    delete config.redminePreviewUrl;
     const supportsAttachments = textarea.closest('form')
       ?.querySelector('.attachments_form input[type="file"][name^="attachments["]');
     if (!supportsAttachments && Array.isArray(config.toolbar?.items)) {
@@ -103,6 +147,7 @@
       instances.set(id, editor);
       editor.sourceElement.dataset.ckeditor5Active = 'true';
       editor.ui.view.element.classList.add('redmine-ckeditor-wrapper');
+      connectPreview(preview, editor, textarea);
       if (height) editor.ui.view.element.style.setProperty('--redmine-ckeditor-height', `${parseInt(height, 10)}px`);
       if (width) editor.ui.view.element.style.width = /^\d+(?:\.\d+)?$/.test(width) ? `${width}px` : width;
       if (uiColor) {

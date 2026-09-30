@@ -60,7 +60,7 @@ module RedmineCkeditor
       end
     end
 
-    def options(upload_url: nil)
+    def options(upload_url: nil, preview_url: nil)
       editor_config = ckeditor_config.except(:allowedProtocols, :allowedTags, :allowedAttributes)
       defaults = {
         licenseKey: 'GPL',
@@ -92,6 +92,7 @@ module RedmineCkeditor
         mediaEmbed: {previewsInData: true},
         style: {definitions: []},
         redmineUpload: {uploadUrl: upload_url},
+        redminePreviewUrl: preview_url,
         redmineHeight: RedmineCkeditorSetting.height,
         redmineWidth: RedmineCkeditorSetting.width,
         redmineUiColor: RedmineCkeditorSetting.ui_color,
