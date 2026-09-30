@@ -119,3 +119,18 @@ test('waits for the full issue form before checking upload support', async () =>
 
   assert.deepEqual(environment.createdConfigs[0].toolbar.items, ['bold', 'uploadImage']);
 });
+
+test('recreates an editor when Redmine replaces its form through AJAX', async () => {
+  const environment = loadIntegration();
+  const firstTextarea = environment.addTextarea('journal_1_notes');
+  const firstEditor = await environment.integration.replace('journal_1_notes', {});
+
+  firstTextarea.isConnected = false;
+  const secondTextarea = environment.addTextarea('journal_1_notes');
+  const secondEditor = await environment.integration.replace('journal_1_notes', {});
+
+  assert.notEqual(secondEditor, firstEditor);
+  assert.equal(secondEditor.sourceElement, secondTextarea);
+  assert.deepEqual(environment.destroyedEditors, [firstEditor]);
+  assert.equal(environment.createdConfigs.length, 2);
+});

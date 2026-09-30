@@ -55,8 +55,20 @@
     }
 
     const textarea = document.getElementById(id);
-    if (!textarea || instances.has(id)) return instances.get(id);
-    if (pending.has(id)) return pending.get(id);
+    if (!textarea) return;
+
+    const existing = instances.get(id);
+    if (existing) {
+      if (existing.sourceElement === textarea && textarea.isConnected) return existing;
+      await destroy(id);
+    }
+
+    const creating = pending.get(id);
+    if (creating) {
+      const editor = await creating;
+      if (editor.sourceElement === textarea && textarea.isConnected) return editor;
+      await destroy(id);
+    }
 
     const bundle = window.RedmineCKEditor5;
     if (!bundle) throw new Error('The CKEditor 5 bundle was not loaded.');
