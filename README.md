@@ -79,23 +79,49 @@ For advanced settings, copy `config/ckeditor.yml.example` to
 `REDMINE_ROOT/config/ckeditor.yml`. The same file also controls the server-side
 HTML sanitizer allowlists.
 
-CKEditor 5.48.3.1 requires a license key. This GPL plugin defaults to the `GPL`
-key. Sites that cannot use CKEditor under GPL must configure an appropriate
-commercial self-hosting key.
+CKEditor 5.48.3.1 requires a license key. The plugin defaults to the `GPL` key;
+use that setting only when the deployment complies with CKEditor's GPL terms.
+Otherwise, configure an appropriate commercial self-hosting key.
 
-## Front-end development
+## Version dependencies
+
+The plugin is the integration layer between Redmine and CKEditor. Redmine owns
+the forms, permissions, preview endpoints, attachment records, asset pipeline,
+and persisted HTML. CKEditor supplies the browser-side editing UI. The compiled
+CKEditor JavaScript and CSS are committed to this repository, so production
+servers do not install or update CKEditor independently.
+
+`package.json` pins the tested CKEditor version exactly. A CKEditor update does
+not normally require a Redmine database migration, but it does require a new
+plugin build and release. Changes to CKEditor plugin APIs, configuration, HTML
+output, licensing, or browser support can require integration changes. Changes
+to Redmine's formatter API, forms, attachment API, or asset pipeline can require
+plugin changes even when the CKEditor version stays the same. The CI matrix is
+the authoritative list of combinations tested by this branch.
+
+## Updating CKEditor
 
 Normal Redmine deployments do not need Node.js because compiled assets are
-committed. To update or customize the editor bundle:
+committed. To update the editor bundle:
 
 ```sh
-npm install
+npm install --save-exact ckeditor5@VERSION
+npm audit --omit=dev
+npm test
 npm run build
 ```
 
-Keep the `ckeditor5` version pinned in `package.json`, rebuild, and commit the
-updated `package-lock.json`, `assets/javascripts/ckeditor5.js`, and
-`assets/javascripts/ckeditor5.css`.
+Before updating, read CKEditor's release notes and every applicable migration
+guide between the installed and target versions. Keep `ckeditor5` pinned to an
+exact version, adapt `frontend/ckeditor5.js` and the integration/configuration
+when required, and commit `package.json`, `package-lock.json`,
+`assets/javascripts/ckeditor5.js`, and `assets/javascripts/ckeditor5.css`.
+
+Run the complete Redmine/database CI matrix before publishing a plugin release.
+For a security-only editor update, the same build and test process applies;
+deploying only a changed npm dependency does nothing because Redmine serves the
+committed compiled bundle. After deploying the new plugin revision, precompile
+assets and restart Redmine as described above.
 
 ## Tests
 
