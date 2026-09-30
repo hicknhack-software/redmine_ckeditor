@@ -3,6 +3,10 @@
 CKEditor 5 integration for Redmine 6.1 and 7. It stores formatted text as HTML
 and uses Redmine's native attachment storage for pasted and uploaded images.
 
+This plugin is a new implementation by HicknHack Software GmbH, inspired by
+Akihiro Ono's [original Redmine CKEditor plugin](https://github.com/a-ono/redmine_ckeditor).
+It shares no code with the previous plugin.
+
 ## Compatibility
 
 - Redmine 6.1 or newer
@@ -137,3 +141,16 @@ from the Redmine root with:
 ```sh
 bundle exec rails test plugins/redmine_ckeditor/test RAILS_ENV=test
 ```
+
+## License
+
+The redmine_ckeditor integration code is available under the [MIT License](LICENSE).
+
+CKEditor itself is third-party software and is **not** relicensed by this
+project's MIT License. CKEditor 5 is available under its own open-source and
+commercial license options; see the official
+[CKEditor licensing page](https://ckeditor.com/legal/ckeditor-licensing-options/)
+for the current terms. Each user is responsible for deciding which CKEditor
+license applies to their use and distribution, and for configuring the
+corresponding license key. The plugin's default `GPL` key does not make that
+decision for the user.

@@ -7,11 +7,12 @@ end
 
 Redmine::Plugin.register :redmine_ckeditor do
   name 'Redmine CKEditor plugin'
-  author 'Akihiro Ono'
+  author 'HicknHack Software GmbH'
+  author_url 'http://www.hicknhack-software.com'
   description 'This is a CKEditor plugin for Redmine'
   version '2.0.0'
   requires_redmine :version_or_higher => '6.1.0'
-  url 'https://github.com/a-ono/redmine_ckeditor'
+  url 'https://github.com/hicknhack-software/redmine_ckeditor'
 
   settings(:partial => 'settings/ckeditor')
 
