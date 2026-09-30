@@ -40,6 +40,20 @@
   }
 
   async function replace(id, options) {
+    // Redmine renders the editor initialization script next to the textarea,
+    // while attachment fields can occur later in the same form. Wait until the
+    // initial document is complete before deciding whether uploads are
+    // available. Scripts inserted later through AJAX run immediately.
+    if (document.readyState === 'loading') {
+      return new Promise((resolve, reject) => {
+        document.addEventListener(
+          'DOMContentLoaded',
+          () => replace(id, options).then(resolve, reject),
+          { once: true }
+        );
+      });
+    }
+
     const textarea = document.getElementById(id);
     if (!textarea || instances.has(id)) return instances.get(id);
     if (pending.has(id)) return pending.get(id);

@@ -94,6 +94,7 @@ jobs:
         working-directory: redmine/plugins/redmine_ckeditor
         run: |
           npm ci
+          npm test
           npm run build
           git diff --exit-code -- assets/javascripts/ckeditor5.js assets/javascripts/ckeditor5.css
 
