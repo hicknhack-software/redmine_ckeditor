@@ -1,14 +1,14 @@
 {
   "name": "redmine-ckeditor-assets",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "scripts": {
     "build": "esbuild frontend/ckeditor5.js --bundle --format=iife --target=es2022 --minify --outfile=assets/javascripts/ckeditor5.js --loader:.svg=text --loader:.png=dataurl --loader:.woff=dataurl --loader:.woff2=dataurl",
     "build:watch": "npm run build -- --watch",
     "test": "node --test test/javascript/*.test.js"
   },
   "dependencies": {
-    "ckeditor5": "48.3.1"
+    "ckeditor5": "48.5.2"
   },
   "devDependencies": {
     "esbuild": "0.25.12"

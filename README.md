@@ -12,7 +12,7 @@ It shares no code with the previous plugin.
 - Redmine 6.1 or newer
 - Rails 7.2 (Redmine 6.1) or Rails 8.1 (Redmine 7)
 - Ruby 3.2 through 3.4 for Redmine 6.1, or a Ruby version supported by Redmine 7
-- CKEditor 5.48.3.1
+- CKEditor 5.48.5.2
 - Redmine's Propshaft-based asset pipeline
 
 The old runtime dependencies have been removed.
@@ -83,7 +83,7 @@ For advanced settings, copy `config/ckeditor.yml.example` to
 `REDMINE_ROOT/config/ckeditor.yml`. The same file also controls the server-side
 HTML sanitizer allowlists.
 
-CKEditor 5.48.3.1 requires a license key. The plugin defaults to the `GPL` key;
+CKEditor 5.48.5.2 requires a license key. The plugin defaults to the `GPL` key;
 use that setting only when the deployment complies with CKEditor's GPL terms.
 Otherwise, configure an appropriate commercial self-hosting key.
 
@@ -104,6 +104,8 @@ plugin changes even when the CKEditor version stays the same. The CI matrix is
 the authoritative list of combinations tested by this branch.
 
 ## Updating CKEditor
+
+See [changelog.md](changelog.md) for release history and version-specific changes.
 
 Normal Redmine deployments do not need Node.js because compiled assets are
 committed. To update the editor bundle:
@@ -139,7 +141,7 @@ When the plugin is installed in a local Redmine checkout, run the same test suit
 from the Redmine root with:
 
 ```sh
-bundle exec rails test plugins/redmine_ckeditor/test RAILS_ENV=test
+RAILS_ENV=test bundle exec rails test plugins/redmine_ckeditor/test
 ```
 
 ## License

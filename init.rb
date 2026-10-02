@@ -10,7 +10,7 @@ Redmine::Plugin.register :redmine_ckeditor do
   author 'HicknHack Software GmbH'
   author_url 'http://www.hicknhack-software.com'
   description 'This is a CKEditor plugin for Redmine'
-  version '2.0.0'
+  version '2.0.1'
   requires_redmine :version_or_higher => '6.1.0'
   url 'https://github.com/hicknhack-software/redmine_ckeditor'
 
