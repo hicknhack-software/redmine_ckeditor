@@ -8,6 +8,23 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
   const createdConfigs = [];
   const destroyedEditors = [];
   const previews = [];
+  const timers = new Map();
+  let nextTimer = 0;
+  const emitter = () => {
+    const callbacks = new Map();
+    return {
+      on(name, callback) {
+        if (!callbacks.has(name)) callbacks.set(name, new Set());
+        callbacks.get(name).add(callback);
+      },
+      off(name, callback) {
+        callbacks.get(name)?.delete(callback);
+      },
+      fire(name, ...args) {
+        callbacks.get(name)?.forEach(callback => callback(...args));
+      }
+    };
+  };
   const classList = (...initial) => {
     const classes = new Set(initial);
     return {
@@ -16,8 +33,10 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
       remove: value => classes.delete(value)
     };
   };
+  const formEvents = emitter();
   const form = {
-    addEventListener() {},
+    addEventListener: formEvents.on,
+    removeEventListener: formEvents.off,
     append() {},
     querySelector(selector) {
       if (selector.startsWith('.attachments_form')) return attachmentInput;
@@ -35,7 +54,7 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
       assert.equal(name, 'template');
       return {
         content: { querySelectorAll: () => [] },
-        set innerHTML(_value) {}
+        innerHTML: ''
       };
     },
     getElementById(id) {
@@ -47,6 +66,14 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
   };
 
   global.window = {
+    setTimeout(callback, delay) {
+      assert.equal(delay, 150);
+      timers.set(++nextTimer, callback);
+      return nextTimer;
+    },
+    clearTimeout(id) {
+      timers.delete(id);
+    },
     addEventListener(name, callback) {
       listeners.set(name, callback);
     },
@@ -72,14 +99,24 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
         async create(textarea, config) {
           createdConfigs.push(config);
           const editor = {
+            ...emitter(),
             sourceElement: textarea,
             _data: textarea.value,
+            dataReads: 0,
             commands: { get: () => null },
             editing: { view: { focus() {} } },
-            getData() { return this._data; },
-            model: { document: { on() {} } },
+            getData() {
+              this.dataReads++;
+              return this._data;
+            },
+            setData(data) {
+              this._data = data;
+              this.model.document.fire('change:data');
+            },
+            model: { document: emitter() },
             plugins: { get: () => ({}) },
             ui: {
+              focusTracker: emitter(),
               getEditableElement: () => ({ clientHeight: 240 }),
               view: {
                 element: {
@@ -90,6 +127,7 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
               }
             },
             async destroy() {
+              this.fire('destroy');
               destroyedEditors.push(this);
             }
           };
@@ -103,12 +141,19 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
   delete require.cache[integrationPath];
   require(integrationPath);
 
-  function addTextarea(id) {
+  function addTextarea(id, value = '') {
     const textarea = {
       dataset: {},
       hidden: false,
       isConnected: true,
-      value: '',
+      value,
+      name: 'issue[notes]',
+      events: [],
+      dispatchEvent(event) { this.events.push(event.type); },
+      matches(selector) {
+        assert.equal(selector, ':disabled');
+        return this.disabled || this.inDisabledFieldset;
+      },
       after() {},
       closest(selector) {
         return selector === 'form' ? form : null;
@@ -123,9 +168,16 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
     createdConfigs,
     destroyedEditors,
     previews,
-    fire(name) {
+    fireForm: formEvents.fire,
+    runTimers() {
+      const callbacks = [...timers.values()];
+      timers.clear();
+      callbacks.forEach(callback => callback());
+    },
+    timers,
+    fire(name, ...args) {
       document.readyState = 'complete';
-      return listeners.get(name)?.();
+      return listeners.get(name)?.(...args);
     },
     integration: window.RedmineCKEditor
   };
@@ -182,4 +234,133 @@ test('recreates an editor when Redmine replaces its form through AJAX', async ()
   assert.equal(secondEditor.sourceElement, secondTextarea);
   assert.deepEqual(environment.destroyedEditors, [firstEditor]);
   assert.equal(environment.createdConfigs.length, 2);
+});
+
+test('coalesces rapid edits without serializing data on the editing path', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes', '<p>Initial</p>');
+  const editor = await environment.integration.replace('issue_notes', {});
+  const initialReads = editor.dataReads;
+
+  for (let i = 0; i < 40; i++) editor.setData(`<p>Edit ${i}</p>`);
+
+  assert.equal(editor.dataReads, initialReads);
+  assert.equal(textarea.value, '<p>Initial</p>');
+  assert.equal(environment.timers.size, 1);
+
+  environment.runTimers();
+  assert.equal(editor.dataReads, initialReads + 1);
+  assert.equal(textarea.value, '<p>Edit 39</p>');
+  assert.deepEqual(textarea.events, ['input']);
+
+  editor.model.document.fire('change:data');
+  environment.runTimers();
+  assert.deepEqual(textarea.events, ['input']);
+});
+
+test('preview flushes the latest edit and cancels deferred synchronization', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes');
+  const editor = await environment.integration.replace('issue_notes', {
+    redminePreviewUrl: '/issues/1/preview'
+  });
+  editor.setData('<p>Latest preview</p>');
+  const preview = environment.previews[0];
+  preview.previewTab.onclick({ target: preview.previewTab.firstChild });
+
+  assert.equal(textarea.value, '<p>Latest preview</p>');
+  assert.equal(environment.timers.size, 0);
+});
+
+test('submission flushes pending edits and resets the unsaved data baseline', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes');
+  const editor = await environment.integration.replace('issue_notes', {});
+  editor.setData('<p>Submit immediately</p>');
+  environment.fireForm('submit');
+
+  assert.equal(textarea.value, '<p>Submit immediately</p>');
+  assert.equal(editor._redmineInitialData, textarea.value);
+  assert.equal(environment.timers.size, 0);
+  assert.equal(editor.dataReads, 2);
+});
+
+test('FormData receives pending edits without marking the form as saved', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes', '<p>Initial</p>');
+  const editor = await environment.integration.replace('issue_notes', {});
+  editor.setData('<p>Capture immediately</p>');
+  const formData = new FormData();
+  formData.set(textarea.name, textarea.value);
+  environment.fireForm('formdata', { formData });
+
+  assert.equal(formData.get(textarea.name), '<p>Capture immediately</p>');
+  assert.equal(editor._redmineInitialData, '<p>Initial</p>');
+  assert.equal(environment.timers.size, 0);
+
+  textarea.disabled = true;
+  const disabledFormData = new FormData();
+  environment.fireForm('formdata', { formData: disabledFormData });
+  assert.equal(disabledFormData.has(textarea.name), false);
+
+  textarea.disabled = false;
+  textarea.inDisabledFieldset = true;
+  environment.fireForm('formdata', { formData: disabledFormData });
+  assert.equal(disabledFormData.has(textarea.name), false);
+});
+
+test('losing editor focus flushes pending edits', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes');
+  const editor = await environment.integration.replace('issue_notes', {});
+  editor.setData('<p>Blur immediately</p>');
+  editor.ui.focusTracker.fire('change:isFocused', {}, 'isFocused', false);
+
+  assert.equal(textarea.value, '<p>Blur immediately</p>');
+  assert.equal(environment.timers.size, 0);
+});
+
+test('programmatic content updates synchronize immediately', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes');
+  await environment.integration.replace('issue_notes', {});
+  await environment.integration.setData('issue_notes', '<p>Quoted journal</p>');
+
+  assert.equal(textarea.value, '<p>Quoted journal</p>');
+  assert.equal(environment.timers.size, 0);
+});
+
+test('warns about unsaved edits before the deferred update has run', async () => {
+  const environment = loadIntegration();
+  environment.addTextarea('issue_notes');
+  const editor = await environment.integration.replace('issue_notes', {});
+  editor.setData('<p>Unsaved</p>');
+  let prevented = false;
+  const event = { preventDefault() { prevented = true; } };
+  environment.fire('beforeunload', event);
+
+  assert.equal(prevented, true);
+  assert.equal(event.returnValue, '');
+});
+
+test('AJAX replacement cancels old updates and removes stale form listeners', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes');
+  const oldEditor = await environment.integration.replace('issue_notes', {});
+  oldEditor.setData('<p>Stale</p>');
+  textarea.isConnected = false;
+  const replacement = environment.addTextarea('issue_notes', '<p>Replacement</p>');
+  await environment.integration.replace('issue_notes', {});
+  const oldReads = oldEditor.dataReads;
+
+  environment.runTimers();
+  oldEditor.model.document.fire('change:data');
+  oldEditor.ui.focusTracker.fire('change:isFocused', {}, 'isFocused', false);
+  environment.fireForm('submit');
+  const formData = new FormData();
+  environment.fireForm('formdata', { formData });
+
+  assert.equal(environment.timers.size, 0);
+  assert.equal(oldEditor.dataReads, oldReads);
+  assert.equal(formData.get(replacement.name), '<p>Replacement</p>');
 });

@@ -9,8 +9,55 @@
   }
 
   function sync(editor, textarea) {
-    textarea.value = editor.getData();
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    const data = editor.getData();
+    if (textarea.value !== data) {
+      textarea.value = data;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    return data;
+  }
+
+  function connectSync(editor, textarea) {
+    let timer;
+    const form = textarea.closest('form');
+    const cancel = () => {
+      window.clearTimeout(timer);
+      timer = undefined;
+    };
+    const flush = () => {
+      cancel();
+      return sync(editor, textarea);
+    };
+    const schedule = () => {
+      cancel();
+      // Serializing a table-heavy document on every keystroke blocks editing.
+      // Keep the backing field current after a short pause instead.
+      timer = window.setTimeout(flush, 150);
+    };
+    const onBlur = (_event, _name, isFocused) => {
+      if (!isFocused) flush();
+    };
+    const onSubmit = () => {
+      editor._redmineInitialData = flush();
+    };
+    const onFormData = event => {
+      // FormData has already captured the fields when this event fires.
+      const data = flush();
+      if (textarea.name && !textarea.matches(':disabled')) event.formData.set(textarea.name, data);
+    };
+
+    editor.model.document.on('change:data', schedule);
+    editor.ui.focusTracker.on('change:isFocused', onBlur);
+    form?.addEventListener('submit', onSubmit);
+    form?.addEventListener('formdata', onFormData);
+    editor.on('destroy', () => {
+      cancel();
+      editor.model.document.off('change:data', schedule);
+      editor.ui.focusTracker.off('change:isFocused', onBlur);
+      form?.removeEventListener('submit', onSubmit);
+      form?.removeEventListener('formdata', onFormData);
+    });
+    editor._redmineFlush = flush;
   }
 
   function createPreview(textarea, previewUrl) {
@@ -31,7 +78,7 @@
     toolbar.previewTab.onclick = event => {
       if (event.target.classList.contains('selected')) return false;
 
-      sync(editor, textarea);
+      editor._redmineFlush();
       const editable = editor.ui.getEditableElement?.();
       if (editable?.clientHeight) toolbar.preview.style.minHeight = `${editable.clientHeight}px`;
       toolbar.toolbar.classList.add('hidden');
@@ -158,14 +205,7 @@
         editor.execute('showBlocks');
       }
 
-      editor.model.document.on('change:data', () => sync(editor, textarea));
-      const form = textarea.closest('form');
-      if (form) {
-        form.addEventListener('submit', () => {
-          sync(editor, textarea);
-          editor._redmineInitialData = editor.getData();
-        });
-      }
+      connectSync(editor, textarea);
       editor._redmineInitialData = editor.getData();
       return editor;
     }).catch(error => {
@@ -194,8 +234,10 @@
   async function setData(id, data) {
     const editor = instances.get(id) || await pending.get(id);
     const normalizedData = normalizeAttachmentImageUrls(data);
-    if (editor) editor.setData(normalizedData);
-    else {
+    if (editor) {
+      editor.setData(normalizedData);
+      editor._redmineFlush();
+    } else {
       const textarea = document.getElementById(id);
       if (textarea) textarea.value = normalizedData;
     }

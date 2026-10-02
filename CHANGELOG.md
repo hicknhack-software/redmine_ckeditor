@@ -25,14 +25,14 @@
   (`GHSA-rh54-vffm-5fvp`) and unsafe data URIs with certain General HTML Support
   configurations (`GHSA-v6mg-96c6-gmpq`).
 
-### Validation
+### Fixed
 
-- Passed 17 Ruby tests (47 assertions) and 3 JavaScript integration tests locally.
-- Verified editor initialization, rich HTML, toolbar and styling, image URL
-  normalization, source editing, preview/edit tabs, native attachment uploads,
-  and AJAX editor replacement in Chromium.
-- Confirmed that a clean `npm ci` build reproduces both bundled assets exactly.
-- `npm audit --omit=dev` reported zero vulnerabilities.
+- Reduced table editing overhead by synchronizing the backing textarea after
+  a 150 ms typing pause instead of serializing the whole editor document on
+  every content change ([#4](https://github.com/hicknhack-software/redmine_ckeditor/issues/4)).
+  Preview, focus loss, submission, FormData creation, and programmatic content
+  updates synchronize immediately. Pending updates and form listeners are
+  removed when an editor is destroyed or replaced through AJAX.
 
 ## 2.0.0 — Internal testing
 
