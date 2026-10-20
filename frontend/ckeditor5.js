@@ -55,6 +55,23 @@ import {
 } from 'ckeditor5';
 import { ClassicEditor } from 'ckeditor5';
 import 'ckeditor5/ckeditor5.css';
+import editorStyles from 'ckeditor5/ckeditor5.css?inline';
+import redmineStyles from '../assets/stylesheets/editor.css?inline';
+
+let shadowStyles;
+
+function createShadowRoot(host) {
+  if (!shadowStyles) {
+    shadowStyles = [editorStyles, redmineStyles].map(css => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(css);
+      return sheet;
+    });
+  }
+  const root = host.attachShadow({ mode: 'open' });
+  root.adoptedStyleSheets = shadowStyles;
+  return root;
+}
 
 class RedmineUploadAdapter {
   constructor(loader, editor) {
@@ -66,7 +83,8 @@ class RedmineUploadAdapter {
   async upload() {
     const file = await this.loader.file;
     const uploadUrl = this.editor.config.get('redmineUpload.uploadUrl');
-    const form = this.editor.sourceElement?.closest('form');
+    // The editor source lives in a shadow root; Redmine owns the real field.
+    const form = this.editor.config.get('redmineUpload.sourceElement')?.closest('form');
     const attachmentInput = form?.querySelector('.attachments_form input[type="file"][name^="attachments["]');
 
     if (!uploadUrl || !form || !attachmentInput) {
@@ -122,6 +140,7 @@ function RedmineUpload(editor) {
 
 window.RedmineCKEditor5 = {
   ClassicEditor,
+  createShadowRoot,
   RedmineUpload,
   plugins: [
     AccessibilityHelp,

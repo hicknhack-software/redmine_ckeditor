@@ -12,7 +12,7 @@ It shares no code with the previous plugin.
 - Redmine 6.1 or newer
 - Rails 7.2 (Redmine 6.1) or Rails 8.1 (Redmine 7)
 - Ruby 3.2 through 3.4 for Redmine 6.1, or a Ruby version supported by Redmine 7
-- CKEditor 5.48.5.2
+- CKEditor 5 v49.0.0 (ES2023, native CSS nesting, and constructed stylesheets)
 - Redmine's Propshaft-based asset pipeline
 
 The old runtime dependencies have been removed.
@@ -83,7 +83,7 @@ For advanced settings, copy `config/ckeditor.yml.example` to
 `REDMINE_ROOT/config/ckeditor.yml`. The same file also controls the server-side
 HTML sanitizer allowlists.
 
-CKEditor 5.48.5.2 requires a license key. The plugin defaults to the `GPL` key;
+CKEditor 5 v49.0.0 requires a license key. The plugin defaults to the `GPL` key;
 use that setting only when the deployment complies with CKEditor's GPL terms.
 Otherwise, configure an appropriate commercial self-hosting key.
 
@@ -105,7 +105,7 @@ the authoritative list of combinations tested by this branch.
 
 ## Updating CKEditor
 
-See [changelog.md](changelog.md) for release history and version-specific changes.
+See [CHANGELOG.md](CHANGELOG.md) for release history and version-specific changes.
 
 Normal Redmine deployments do not need Node.js because compiled assets are
 committed. To update the editor bundle:
@@ -115,6 +115,8 @@ npm install --save-exact ckeditor5@VERSION
 npm audit --omit=dev
 npm test
 npm run build
+npx playwright install --with-deps chromium
+npm run test:browser
 ```
 
 Before updating, read CKEditor's release notes and every applicable migration
@@ -122,6 +124,16 @@ guide between the installed and target versions. Keep `ckeditor5` pinned to an
 exact version, adapt `frontend/ckeditor5.js` and the integration/configuration
 when required, and commit `package.json`, `package-lock.json`,
 `assets/javascripts/ckeditor5.js`, and `assets/javascripts/ckeditor5.css`.
+
+The editor runs in an open shadow root, with floating dialogs and balloons in
+a separate shadow root at the end of the page. Both roots share the bundled
+CKEditor and `assets/stylesheets/editor.css` stylesheets. Rebuild the bundle
+after editing that stylesheet. Page selectors do not reach the editor; place
+content/UI rules in that stylesheet and use `:host` for inherited typography
+and theme variables. Page-level theme overrides can target
+`.redmine-ckeditor-host` and `.redmine-ckeditor-overlay-host`; apply editor UI
+tokens to both hosts. The configured UI color is applied to both automatically.
+The original textarea stays in Redmine's form for saving, preview, and uploads.
 
 Run the complete Redmine/database CI matrix before publishing a plugin release.
 For a security-only editor update, the same build and test process applies;

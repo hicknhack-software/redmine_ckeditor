@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {}) {
+function loadIntegration({ readyState = 'complete', attachmentInput = {}, createError } = {}) {
   const listeners = new Map();
   const textareas = new Map();
   const createdConfigs = [];
@@ -44,14 +44,29 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
     }
   };
 
+  const elements = [];
+  function element() {
+    const properties = new Map();
+    const node = {
+      children: [],
+      hidden: false,
+      style: { setProperty: (name, value) => properties.set(name, value), properties },
+      appendChild(child) { this.children.push(child); child.parentNode = this; return child; },
+      remove() { this.removed = true; }
+    };
+    elements.push(node);
+    return node;
+  }
+
   global.document = {
+    body: element(),
     readyState,
     baseURI: 'https://redmine.example/',
     addEventListener(name, callback) {
       listeners.set(name, callback);
     },
     createElement(name) {
-      assert.equal(name, 'template');
+      if (name !== 'template') return element();
       return {
         content: { querySelectorAll: () => [] },
         innerHTML: ''
@@ -93,15 +108,22 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
       }
     },
     RedmineCKEditor5: {
+      createShadowRoot(host) {
+        host.shadowRoot = element();
+        host.shadowRoot.host = host;
+        host.shadowRoot.mode = 'open';
+        return host.shadowRoot;
+      },
       plugins: [],
       RedmineUpload() {},
       ClassicEditor: {
-        async create(textarea, config) {
+        async create(config) {
+          if (createError) throw createError;
           createdConfigs.push(config);
           const editor = {
             ...emitter(),
-            sourceElement: textarea,
-            _data: textarea.value,
+            sourceElement: config.attachTo,
+            _data: config.initialData,
             dataReads: 0,
             commands: { get: () => null },
             editing: { view: { focus() {} } },
@@ -154,7 +176,7 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
         assert.equal(selector, ':disabled');
         return this.disabled || this.inDisabledFieldset;
       },
-      after() {},
+      after(node) { this.nextElementSibling = node; },
       closest(selector) {
         return selector === 'form' ? form : null;
       }
@@ -165,6 +187,7 @@ function loadIntegration({ readyState = 'complete', attachmentInput = {} } = {})
 
   return {
     addTextarea,
+    elements,
     createdConfigs,
     destroyedEditors,
     previews,
@@ -213,11 +236,11 @@ test('uses Redmine server preview and keeps custom options away from CKEditor', 
   editor._data = '<p>Preview me</p>';
   preview.previewTab.onclick({ target: preview.previewTab.firstChild });
   assert.equal(textarea.value, '<p>Preview me</p>');
-  assert.equal(editor.ui.view.element.hidden, true);
+  assert.equal(editor._redmineHost.hidden, true);
   assert.equal(preview.preview.classList.contains('hidden'), false);
 
   preview.editTab.onclick({ target: preview.editTab.firstChild });
-  assert.equal(editor.ui.view.element.hidden, false);
+  assert.equal(editor._redmineHost.hidden, false);
   assert.equal(preview.preview.classList.contains('hidden'), true);
 });
 
@@ -231,7 +254,8 @@ test('recreates an editor when Redmine replaces its form through AJAX', async ()
   const secondEditor = await environment.integration.replace('journal_1_notes', {});
 
   assert.notEqual(secondEditor, firstEditor);
-  assert.equal(secondEditor.sourceElement, secondTextarea);
+  assert.equal(secondEditor._redmineTextarea, secondTextarea);
+  assert.equal(firstEditor._redmineHost.removed, true);
   assert.deepEqual(environment.destroyedEditors, [firstEditor]);
   assert.equal(environment.createdConfigs.length, 2);
 });
@@ -363,4 +387,62 @@ test('AJAX replacement cancels old updates and removes stale form listeners', as
   assert.equal(environment.timers.size, 0);
   assert.equal(oldEditor.dataReads, oldReads);
   assert.equal(formData.get(replacement.name), '<p>Replacement</p>');
+});
+
+test('mounts the editor and floating UI separately while retaining the form field', async () => {
+  const environment = loadIntegration();
+  const textarea = environment.addTextarea('issue_notes', '<p>Initial</p>');
+  const editor = await environment.integration.replace('issue_notes', {
+    ui: { viewportOffset: { top: 30 } },
+    redmineUpload: { uploadUrl: '/uploads' },
+    redmineHeight: 400,
+    redmineWidth: '90%',
+    redmineUiColor: '#abcdef'
+  });
+  const config = environment.createdConfigs[0];
+  const host = editor._redmineHost;
+  const overlayHost = config.ui.overlayContainer.host;
+  assert.equal(editor.sourceElement, host.shadowRoot.children[0]);
+  assert.equal(host.shadowRoot.mode, 'open');
+  assert.notEqual(config.ui.overlayContainer, host.shadowRoot);
+  assert.equal(overlayHost.parentNode, document.body);
+  assert.equal(config.ui.viewportOffset.top, 30);
+  assert.equal(config.redmineUpload.sourceElement, textarea);
+  assert.equal(config.redmineUpload.uploadUrl, '/uploads');
+  assert.equal(config.initialData, '<p>Initial</p>');
+  assert.equal(textarea.hidden, true);
+  assert.equal(host.style.width, '90%');
+  assert.equal(host.style.properties.get('--redmine-ckeditor-height'), '400px');
+  for (const node of [host, overlayHost]) {
+    assert.equal(node.style.properties.get('--ck-color-base-background'), '#abcdef');
+  }
+  assert.equal(await environment.integration.replace('issue_notes', {}), editor);
+  assert.equal(environment.createdConfigs.length, 1);
+
+  editor.setData('<p>Last edit</p>');
+  await environment.integration.destroy('issue_notes');
+  assert.equal(textarea.value, '<p>Last edit</p>');
+  assert.equal(textarea.hidden, false);
+  assert.equal(textarea.dataset.ckeditor5Active, undefined);
+  assert.equal(host.removed, true);
+  assert.equal(overlayHost.removed, true);
+  assert.equal(environment.integration.editorFor('issue_notes'), undefined);
+});
+
+test('restores the textarea and removes shadow hosts when initialization fails', async () => {
+  const environment = loadIntegration({ createError: new Error('Invalid license') });
+  const textarea = environment.addTextarea('issue_notes', '<p>Keep this</p>');
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    await assert.rejects(environment.integration.replace('issue_notes', {}), /Invalid license/);
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(textarea.hidden, false);
+  assert.equal(textarea.value, '<p>Keep this</p>');
+  const hosts = environment.elements.filter(node => node.className?.startsWith('redmine-ckeditor-') && !node.className.endsWith('error'));
+  assert.equal(hosts.length, 2);
+  assert.equal(hosts.every(node => node.removed), true);
+  assert.equal(environment.integration.editorFor('issue_notes'), undefined);
 });

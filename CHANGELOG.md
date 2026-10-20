@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.1.0 — 2026-10-20
+
+### Changed
+
+- Updated CKEditor 5 from 48.5.2 to
+  [49.0.0](https://ckeditor.com/docs/ckeditor5/latest/updating/guides/update-to-49.html),
+  rebuilt the committed assets, and moved the build target to ES2023 with
+  native CSS nesting support.
+- Mounted editors in open shadow roots to isolate editing content and toolbar
+  styles from Redmine's form and theme rules. Floating UI uses a dedicated,
+  styled shadow root at the end of the body to avoid clipped balloons/dialogs.
+  Both roots share constructed stylesheets and receive configured UI colors.
+- Kept the backing textarea in Redmine's form and connected it explicitly to
+  synchronization, preview, upload adapters, and AJAX editor replacement.
+  Destroying an editor flushes pending edits and removes both shadow hosts.
+- Added Chromium integration tests to CI for style isolation, actual typing,
+  FormData, focus, floating dialogs, native attachment fields, preview, and
+  editor lifecycle.
+- Reviewed the v49 theme, overlay, and Watchdog changes. The integration uses
+  neither Watchdog nor the affected AI APIs. Theme customizations now belong
+  in the bundled stylesheet or on both shadow hosts, rather than on `:root`.
+
 ## 2.0.1 — 2026-10-03
 
 ### Changed

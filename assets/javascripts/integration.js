@@ -71,7 +71,7 @@
   function connectPreview(toolbar, editor, textarea) {
     if (!toolbar) return;
 
-    const editorElement = editor.ui.view.element;
+    const editorElement = editor._redmineHost;
     const editLink = toolbar.editTab.firstChild;
     const previewLink = toolbar.previewTab.firstChild;
 
@@ -148,14 +148,14 @@
 
     const existing = instances.get(id);
     if (existing) {
-      if (existing.sourceElement === textarea && textarea.isConnected) return existing;
+      if (existing._redmineTextarea === textarea && textarea.isConnected) return existing;
       await destroy(id);
     }
 
     const creating = pending.get(id);
     if (creating) {
       const editor = await creating;
-      if (editor.sourceElement === textarea && textarea.isConnected) return editor;
+      if (editor._redmineTextarea === textarea && textarea.isConnected) return editor;
       await destroy(id);
     }
 
@@ -189,18 +189,54 @@
     delete config.redmineUiColor;
     delete config.redmineShowBlocks;
 
-    const promise = bundle.ClassicEditor.create(textarea, config).then(editor => {
+    let host;
+    let overlayHost;
+    const cleanup = () => {
+      host?.remove();
+      overlayHost?.remove();
+      textarea.hidden = false;
+      delete textarea.dataset.ckeditor5Active;
+    };
+    const promise = Promise.resolve().then(() => {
+      host = document.createElement('div');
+      host.className = 'redmine-ckeditor-host';
+      textarea.after(host);
+      const root = bundle.createShadowRoot(host);
+      const source = root.appendChild(document.createElement('div'));
+
+      // Mount floating UI outside Redmine's scrolling/clipping form containers,
+      // with the same isolated styles and per-editor theme as the editing root.
+      overlayHost = document.createElement('div');
+      overlayHost.className = 'redmine-ckeditor-overlay-host';
+      document.body.appendChild(overlayHost);
+      const overlayContainer = bundle.createShadowRoot(overlayHost);
+      if (height) host.style.setProperty('--redmine-ckeditor-height', `${parseInt(height, 10)}px`);
+      if (width) host.style.width = /^\d+(?:\.\d+)?$/.test(width) ? `${width}px` : width;
+      if (uiColor) {
+        for (const element of [host, overlayHost]) {
+          element.style.setProperty('--ck-color-base-background', uiColor);
+          element.style.setProperty('--ck-color-toolbar-background', uiColor);
+        }
+      }
+
+      config.attachTo = source;
+      config.initialData = textarea.value;
+      config.ui = Object.assign({}, config.ui, { overlayContainer });
+      config.redmineUpload = Object.assign({}, config.redmineUpload, { sourceElement: textarea });
+      textarea.hidden = true;
+      return bundle.ClassicEditor.create(config);
+    }).then(editor => {
       pending.delete(id);
       instances.set(id, editor);
-      editor.sourceElement.dataset.ckeditor5Active = 'true';
+      editor._redmineTextarea = textarea;
+      editor._redmineHost = host;
+      textarea.dataset.ckeditor5Active = 'true';
+      editor.on('destroy', () => {
+        if (instances.get(id) === editor) instances.delete(id);
+        cleanup();
+      });
       editor.ui.view.element.classList.add('redmine-ckeditor-wrapper');
       connectPreview(preview, editor, textarea);
-      if (height) editor.ui.view.element.style.setProperty('--redmine-ckeditor-height', `${parseInt(height, 10)}px`);
-      if (width) editor.ui.view.element.style.width = /^\d+(?:\.\d+)?$/.test(width) ? `${width}px` : width;
-      if (uiColor) {
-        editor.ui.view.element.style.setProperty('--ck-color-base-background', uiColor);
-        editor.ui.view.element.style.setProperty('--ck-color-toolbar-background', uiColor);
-      }
       if (showBlocks && editor.commands.get('showBlocks') && !editor.commands.get('showBlocks').value) {
         editor.execute('showBlocks');
       }
@@ -210,7 +246,7 @@
       return editor;
     }).catch(error => {
       pending.delete(id);
-      textarea.hidden = false;
+      cleanup();
       const message = document.createElement('div');
       message.className = 'redmine-ckeditor-error';
       message.textContent = `CKEditor could not start: ${error.message}`;
@@ -228,6 +264,7 @@
     if (!editor) return;
     instances.delete(id);
     pending.delete(id);
+    editor._redmineFlush();
     await editor.destroy();
   }
 
