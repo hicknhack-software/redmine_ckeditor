@@ -163,7 +163,7 @@ module RedmineCkeditor
     def public_path_for(url)
       value = CGI.unescapeHTML(url.to_s)
       path = URI.parse(value).path
-      return if path.blank?
+      return if path.blank? || !path.match?(%r{(?:\A|/)original(?:/|\z)})
 
       system_index = path.index('/system/rich/')
       path = path[system_index..] if system_index
